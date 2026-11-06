@@ -1,7 +1,6 @@
 const urlJoin = require('url-join');
 const { PodActivitiesHandlerMixin } = require('@activitypods/app');
 const { arrayOf } = require('@semapps/ldp');
-const postToPod = require('../utils/postToPod');
 
 module.exports = {
   name: 'conversation',
@@ -35,11 +34,8 @@ module.exports = {
           return;
         }
 
-        const containerUri = await ctx.call('notes.getContainerUri', { actorUri });
-        const messageUri = await postToPod(
-          ctx,
-          containerUri,
-          {
+        const messageUri = await ctx.call('notes.post', {
+          resource: {
             type: 'Note',
             attributedTo: activity.actor,
             content: note.content,
@@ -50,7 +46,7 @@ module.exports = {
             published: new Date().toISOString()
           },
           actorUri
-        );
+        });
         await this.addToConversation(ctx, messageUri, project, actorUri);
       }
     }
