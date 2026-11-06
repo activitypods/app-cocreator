@@ -13,11 +13,18 @@ import { getConversationUri, type Message, type Project } from './types';
 const LOAD_OLDER_THRESHOLD = 80;
 const STICK_TO_BOTTOM_THRESHOLD = 120;
 
-const MessageItem = ({ message }: { message: Message }) => {
+/** A message shown before the creator's Pod has added it to the conversation. */
+type PendingMessage = Message & {
+  /** Messages already in the conversation when it was sent: the one that shows up later with the
+   *  same author and content, and isn't among these, is this message. */
+  knownIds: string[];
+};
+
+const MessageItem = ({ message, isPending }: { message: Message; isPending?: boolean }) => {
   const { data: profile } = useActorProfile(message.attributedTo);
   const name = profile?.['vcard:given-name'];
   return (
-    <Flex gap={8} align="start" data-testid="message">
+    <Flex gap={8} align="start" data-testid="message" style={{ opacity: isPending ? 0.6 : 1 }}>
       <Avatar src={profile?.['vcard:photo']}>{name?.[0]?.toUpperCase()}</Avatar>
       <div style={{ minWidth: 0 }}>
         <Flex gap={8} align="baseline">
@@ -40,7 +47,7 @@ const Conversation = ({ project }: { project: Project }) => {
   const conversationUri = getConversationUri(project);
   const collection = useCollection(conversationUri);
   const [content, setContent] = useState('');
-  const [isSending, setIsSending] = useState(false);
+  const [pending, setPending] = useState<PendingMessage[]>([]);
 
   useCollectionChannel(conversationUri, {
     onAdd: async itemUri => {
@@ -51,10 +58,29 @@ const Conversation = ({ project }: { project: Project }) => {
   });
 
   // The first pages hold the most recent messages
-  const messages: Message[] = useMemo(() => {
+  const received: Message[] = useMemo(() => {
     const byId = new Map<string, Message>(collection.items.map((message: Message) => [message.id, message]));
     return [...byId.values()].sort((a, b) => a.published.localeCompare(b.published));
   }, [collection.items]);
+
+  // A message goes through the creator's Pod before it reaches the conversation, so it is shown
+  // right away, then swapped for the real one once it arrives
+  const stillPending = useMemo(() => {
+    const matched = new Set<string>();
+    return pending.filter(message => {
+      const arrived = received.find(
+        ({ id, attributedTo, content }) =>
+          !matched.has(id) &&
+          !message.knownIds.includes(id) &&
+          attributedTo === message.attributedTo &&
+          content === message.content
+      );
+      if (arrived) matched.add(arrived.id);
+      return !arrived;
+    });
+  }, [received, pending]);
+
+  const messages = useMemo(() => [...received, ...stillPending], [received, stillPending]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const previousScrollHeight = useRef<number | undefined>(undefined);
@@ -85,7 +111,22 @@ const Conversation = ({ project }: { project: Project }) => {
     event.preventDefault();
     const text = content.trim();
     if (!text) return;
-    setIsSending(true);
+
+    const published = new Date().toISOString();
+    const id = `pending:${published}`;
+    setPending(list => [
+      ...list,
+      {
+        id,
+        attributedTo: identity!.id,
+        content: text,
+        published,
+        knownIds: received.map(message => message.id)
+      }
+    ]);
+    setContent('');
+    isAtBottom.current = true;
+
     try {
       const creator = project['dc:creator'];
       await outbox.post({
@@ -97,15 +138,14 @@ const Conversation = ({ project }: { project: Project }) => {
           attributedTo: identity?.id,
           content: text,
           context: project.id,
-          published: new Date().toISOString()
+          published
         }
       });
-      setContent('');
-      isAtBottom.current = true;
     } catch (e) {
+      setPending(list => list.filter(message => message.id !== id));
+      setContent(text);
       notify?.({ type: 'error', message: (e as Error).message });
     }
-    setIsSending(false);
   };
 
   return (
@@ -125,7 +165,11 @@ const Conversation = ({ project }: { project: Project }) => {
           <Empty description={translate('conversation.empty', 'No message yet')} />
         )}
         {messages.map(message => (
-          <MessageItem key={message.id} message={message} />
+          <MessageItem
+            key={message.id}
+            message={message}
+            isPending={stillPending.includes(message as PendingMessage)}
+          />
         ))}
       </div>
       <form onSubmit={send}>
@@ -143,7 +187,6 @@ const Conversation = ({ project }: { project: Project }) => {
             type="primary"
             htmlType="submit"
             icon={<SendOutlined />}
-            loading={isSending}
             aria-label={translate('conversation.send', 'Send')}
           />
         </Flex>
