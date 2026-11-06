@@ -1,0 +1,50 @@
+{
+  "name": "app-builder-frontend",
+  "type": "module",
+  "scripts": {
+    "start": "vite",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "serve": "vite preview",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint --fix --ext .ts,.tsx ./src",
+    "format": "prettier --write ./src",
+    "link-packages": "yalc link @activitypods/refine-providers @activitypods/refine-hooks @activitypods/refine-antd",
+    "unlink-packages": "yalc remove --all && rm -rf node_modules/@activitypods && yarn install --force"
+  },
+  "dependencies": {
+    "@activitypods/refine-antd": "2.3.2",
+    "@activitypods/refine-hooks": "2.3.2",
+    "@activitypods/refine-providers": "2.3.2",
+    "@ant-design/icons": "^5.5.1",
+    "@ant-design/v5-patch-for-react-19": "^1.0.3",
+    "@refinedev/antd": "^6.0.3",
+    "@refinedev/core": "^5.0.12",
+    "@refinedev/react-router": "^2.0.4",
+    "@tanstack/react-query": "^5.81.5",
+    "antd": "^5.23.0",
+    "dayjs": "^1.11.13",
+    "i18next": "^23.16.8",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router": "^7.0.2",
+    "url-join": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@typescript-eslint/eslint-plugin": "^5.60.1",
+    "@typescript-eslint/parser": "^5.60.1",
+    "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^8.43.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^2.8.8",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.15",
+    "yalc": "^1.0.0-pre.53"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+}

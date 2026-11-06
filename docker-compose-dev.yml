@@ -1,0 +1,52 @@
+services:
+  fuseki:
+    image: semapps/jena-fuseki-webacl
+    # Without a limit, the JVM takes 65% of the host RAM
+    mem_limit: 2g
+    volumes:
+      - ./data/fuseki:/fuseki:z
+    ports:
+      - "3030:3030"
+    environment:
+      ADMIN_PASSWORD: admin
+      JVM_ARGS: -Xmx1g
+
+  activitypods-backend:
+    image: activitypods/backend:latest
+    depends_on:
+      - fuseki
+      - redis
+      - mailcatcher
+    volumes:
+      - ./data/activitypods/logs:/app/backend/logs:z
+      - ./data/activitypods/jwt:/app/backend/jwt:z
+      - ./data/activitypods/uploads:/app/backend/uploads:z
+    environment:
+      SEMAPPS_APP_LANG: fr
+      SEMAPPS_JENA_PASSWORD: admin
+      SEMAPPS_SHAPE_REPOSITORY_URL: ${SHAPE_REPOSITORY_URL}
+    # Allow the Pod backend to reach the app backend on localhost
+    network_mode: host
+
+  activitypods-frontend:
+    image: activitypods/frontend:latest
+    depends_on:
+      - activitypods-backend
+    ports:
+      - "5000:5000"
+    environment:
+      REACT_APP_CONFIG_URL: http://localhost:3000/.well-known/config.js
+
+  mailcatcher:
+    image: dockage/mailcatcher
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data:z
+    command: ["redis-server", "--appendonly", "yes"]
