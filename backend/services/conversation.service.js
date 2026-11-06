@@ -12,7 +12,29 @@ module.exports = {
       async onEmit(ctx, activity, actorUri) {
         const projectUri = activity.object.id || activity.object['@id'];
         if (!projectUri.startsWith(urlJoin(actorUri, '/'))) return;
-        await ctx.call('projects.addMembers', { projectUri, memberUris: arrayOf(activity.to), actorUri });
+        const memberUris = arrayOf(activity.to);
+        await ctx.call('projects.addMembers', { projectUri, memberUris, actorUri });
+
+        // Sent directly to the recipients, in case they haven't installed the app yet
+        for (const recipientUri of memberUris) {
+          await ctx.call('pod-notifications.send', {
+            template: {
+              title: {
+                en: `{{{emitterProfile.vcard:given-name}}} invites you to the project "{{{activity.object.pair:label}}}"`,
+                fr: `{{{emitterProfile.vcard:given-name}}} vous invite au projet "{{{activity.object.pair:label}}}"`
+              },
+              actions: [
+                {
+                  caption: { en: 'View', fr: 'Voir' },
+                  link: '/projects/show/{{encodeUri activity.object.id}}'
+                }
+              ]
+            },
+            activity,
+            context: projectUri,
+            recipientUri
+          });
+        }
       }
     },
     postMessage: {
